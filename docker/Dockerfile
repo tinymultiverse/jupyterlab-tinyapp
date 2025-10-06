@@ -1,41 +1,24 @@
-FROM ubuntu:oracular-20240811.1
+FROM quay.io/jupyter/base-notebook:python-3.11
 
-RUN apt-get update --yes && \
-    apt-get upgrade --yes && \
-    apt-get install --yes --no-install-recommends \
-    # Necessary to extract the micromamba executable
-    bzip2 \
-    ca-certificates \
-    libpq-dev
-    tini \
-    build-essential \
-    ssh \
-    wget && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+USER root
 
-ENV CONDA_ENV_NAME=python3 \
-    CONDA_DIR=/opt/conda \
-    SHELL=/bin/bash \
-ENV PATH="${CONDA_DIR}/bin:${PATH}"
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+    libpq-dev \
+    nodejs \
+    npm \
+    yarn
 
-ARG PYTHON_VERSION=3.12
-
-# "jovyan" from base image
-USER ${NB_UID}
-
-RUN conda install --yes \
-    'streamlit' \
-    'gunicorn' \
-    'dash' && \
-    fix-permissions "${CONDA_DIR}"
-
-COPY start-tinyapp.sh start-tinyapp.py /usr/local/bin/
+# COPY start-tinyapp.sh start-tinyapp.py /usr/local/bin/
 
 USER root
 
 # TODO install from PyPi
-COPY jupyterlab_tinyapp-1.0.0-py3-none-any.whl .
-RUN pip install ./jupyterlab_tinyapp-1.0.0-py3-none-any.whl
+COPY . .
+RUN pip install build
+RUN python -m build -w
+# COPY jupyterlab_tinyapp-1.0.0-py3-none-any.whl .
+RUN pip install ./dist/jupyterlab_tinyapp-1.0.0-py3-none-any.whl
 
 USER ${NB_UID}
 USER root
