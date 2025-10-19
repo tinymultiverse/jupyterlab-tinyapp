@@ -9,16 +9,15 @@ RUN apt-get update -y && \
     npm \
     yarn
 
-# COPY start-tinyapp.sh start-tinyapp.py /usr/local/bin/
-
-USER root
+RUN pip install streamlit build
 
 # TODO install from PyPi
 COPY . .
-RUN pip install build
 RUN python -m build -w
-# COPY jupyterlab_tinyapp-1.0.0-py3-none-any.whl .
 RUN pip install ./dist/jupyterlab_tinyapp-1.0.0-py3-none-any.whl
 
+COPY docker/start.sh docker/start-tinyapp.sh docker/start-tinyapp.py /usr/local/bin/
+ENTRYPOINT ["tini", "-g", "--"]
+CMD ["start.sh"]
+
 USER ${NB_UID}
-USER root
