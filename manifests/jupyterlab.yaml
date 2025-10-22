@@ -26,6 +26,8 @@ spec:
           env:
             - name: TINY_APP_SERVER_URL
               value: http://tinyapp-server.tinyapp.svc.cluster.local:8889
+            - name: APP_PREVIEW_URL # Should be same as url jupyterlab is accessed from
+              value: http://127.0.0.1:8005
             - name: AI_ENABLED
               value: "false"
             - name: VOLUME_CLAIM_NAME
