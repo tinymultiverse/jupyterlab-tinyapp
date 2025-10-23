@@ -6,5 +6,5 @@ if [[ "${RUN_TINYAPP,,}" == "true" ]]; then
     exec python start-tinyapp.py "$@"
 else
     echo "RUN_TINYAPP is not true, starting standard Jupyter notebook..."
-    exec start-notebook.py "$@"
+    exec start-notebook.py --ServerApp.token='' "$@"
 fi

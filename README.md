@@ -49,6 +49,10 @@ python -m build -w
 | OPENAI_API_KEY                  | (REQUIRED if AI_ENABLED set)  | api key to connect to openai LLM model |
 | MOCK_AI_STREAM                  | false                         | mock ai response |
 
+## Backend
+
+To be able to deploy an app, you need to install the TinyApp backend. Follow instructions [here](https://github.com/tinymultiverse/tinyapp/blob/main/docs/getting_started.md).
+
 ## User guide
 
 See [User Guide](./docs/USER_GUIDE.md)
