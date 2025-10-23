@@ -854,12 +854,11 @@ class DeleteAppHandler(CustomAPIHandler):
 
 class PingHandler(CustomAPIHandler):
     @tornado.web.authenticated
-    async def post(self):
-        input_data = self.get_json_body()
-        logger.info(f'Received request PingHandler with input:\n{input_data}')
+    async def get(self):
+        logger.info('Received request to PingHandler')
         
         ok = False
-        api_route = input_data.get('url', '').strip('/') + HEALTH_CHECK
+        api_route = f'http://127.0.0.1:{APP_PREVIEW_PORT}{HEALTH_CHECK}'
 
         logger.info(f'Ping route is: {api_route}')
 

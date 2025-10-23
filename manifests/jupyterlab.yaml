@@ -27,7 +27,7 @@ spec:
             - name: TINY_APP_SERVER_URL
               value: http://tinyapp-server.tinyapp.svc.cluster.local:8889
             - name: APP_PREVIEW_URL # Should be same as url jupyterlab is accessed from
-              value: http://127.0.0.1:8005
+              value: http://tinymultiverse.local
             - name: AI_ENABLED
               value: "false"
             - name: VOLUME_CLAIM_NAME
@@ -67,3 +67,34 @@ spec:
         - name: data-volume
           persistentVolumeClaim:
             claimName: my-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jupyterlab-with-tinyapp
+  namespace: tinyapp
+spec:
+  selector:
+    app.kubernetes.io/name: jupyterlab-with-tinyapp
+  ports:
+    - port: 80
+      targetPort: 8005
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jupyterlab-with-tinyapp
+  namespace: tinyapp
+spec:
+  ingressClassName: haproxy
+  rules:
+    - host: tinymultiverse.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jupyterlab-with-tinyapp
+                port:
+                  number: 80
