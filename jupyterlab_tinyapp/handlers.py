@@ -415,7 +415,7 @@ class PreviewHandler(CustomAPIHandler):
 
             self.finish(json.dumps({
                 'data': {
-                    'appURL': f'{APP_PREVIEW_URL}{APP_PREVIEW_BASE_URL}'
+                    'appURL': f'{APP_PREVIEW_URL}{JUPYTER_BASE_URL}{APP_PREVIEW_BASE_URL}'
                 }
             }))
 
@@ -858,7 +858,7 @@ class PingHandler(CustomAPIHandler):
         logger.info('Received request to PingHandler')
         
         ok = False
-        api_route = f'http://127.0.0.1:{APP_PREVIEW_PORT}{APP_PREVIEW_BASE_URL}{HEALTH_CHECK}'
+        api_route = f'http://127.0.0.1:{APP_PREVIEW_PORT}{JUPYTER_BASE_URL}{APP_PREVIEW_BASE_URL}{HEALTH_CHECK}'
 
         logger.info(f'Ping route is: {api_route}')
 
