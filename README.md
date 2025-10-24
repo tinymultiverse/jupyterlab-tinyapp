@@ -14,12 +14,29 @@ To install the extension, execute:
 pip install jupyterlab_tinyapp
 ```
 
+## Uninstall
+
+To remove the extension, execute:
+
+```bash
+pip uninstall jupyterlab_tinyapp
+```
+
+## Build Wheel
+
+To build wheel file in 'dist' folder:
+
+```bash
+pip install build
+python -m build -w
+```
+
 #### Environment variables
 
 | Environment Variable            | Default                       | Description |
 |---------------------------------|-------------------------------|-------------|
-| APP_PREVIEW_PORT                | 8002                          | app preview port. Ignored if APP_PREVIEW_HOST is set |
-| APP_PREVIEW_HOST                | http://127.0.0.1:{APP_PREVIEW_PORT} | hostname for app preview url |
+| APP_PREVIEW_PORT                | 8002                          | app preview port. Ignored if APP_PREVIEW_URL is set |
+| APP_PREVIEW_URL                 | http://127.0.0.1:8005         | url for app preview |
 | APP_PREVIEW_BASE_URL            | /tinyapp/app-preview          | base url for app preview |
 | TINY_APP_SERVER_URL             | (REQUIRED)                    | url for tinyapp server |
 | CONDA_ENV_DIR                   | /opt/conda                    | path to conda env under which app preview process is run |
@@ -31,6 +48,10 @@ pip install jupyterlab_tinyapp
 | AI_ENABLED                      | true                          | enable app code generation using LLM |
 | OPENAI_API_KEY                  | (REQUIRED if AI_ENABLED set)  | api key to connect to openai LLM model |
 | MOCK_AI_STREAM                  | false                         | mock ai response |
+
+## Backend
+
+To be able to deploy an app, you need to install the TinyApp backend. Follow instructions [here](https://github.com/tinymultiverse/tinyapp/blob/main/docs/getting_started.md).
 
 ## User guide
 

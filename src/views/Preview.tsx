@@ -38,13 +38,10 @@ const maxWaitTime = 1 * 60 * 1000; // 1 minutes in ms
 const pingInterval = 1 * 1000; // 3 seconds in ms
 
 // pings the app url
-const ping = async (url: string): Promise<boolean> => {
+const ping = async (): Promise<boolean> => {
   return new Promise(resolve => {
     requestAPI<any>('ping', {
-      body: JSON.stringify({
-        url: url
-      }),
-      method: 'POST'
+      method: 'GET'
     })
       .then(result => result.data)
       .then(result => resolve(result.ok));
@@ -114,7 +111,7 @@ export const previewExecutor = async (
       if (loadingTimeout(t0, maxWaitTime)) {
         throw makeTimeoutError();
       }
-      ok = await ping(result.data.appURL);
+      ok = await ping();
       console.log('ready: ' + ok.toString());
       await delay(pingInterval);
     }

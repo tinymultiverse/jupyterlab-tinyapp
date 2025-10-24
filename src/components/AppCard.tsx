@@ -51,13 +51,10 @@ export const AppCard = (props: IAppCardProps): any => {
   const pingInterval = 7 * 1000; // 7 seconds
 
   // Pings the app url
-  const ping = async (url: string): Promise<boolean> => {
+  const ping = async (): Promise<boolean> => {
     return new Promise(resolve => {
       requestAPI<any>('ping', {
-        body: JSON.stringify({
-          url: url
-        }),
-        method: 'POST'
+        method: 'GET'
       })
         .then(result => result.data)
         .then(result => resolve(result.ok));
@@ -87,7 +84,7 @@ export const AppCard = (props: IAppCardProps): any => {
       }
 
       console.log('pinging: ' + ok.toString());
-      ok = await ping(appUrl);
+      ok = await ping();
       console.log('ready: ' + ok.toString());
       if (ok === true) {
         break;
