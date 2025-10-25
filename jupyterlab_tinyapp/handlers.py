@@ -40,6 +40,7 @@ from distutils.util import strtobool
 from .generation.constants import StreamDestination
 from .generation.generator import MockStreamingGenerator, OpenAIStreamingGenerator
 from .generation.streaming import StreamParser
+import ldap3
 
 app = Application.instance()
 logger = logging.getLogger(app.log.name)
@@ -124,6 +125,14 @@ VALIDATE_SSL = os.getenv('VALIDATE_SSL', 'true').lower() == 'true'
 # a consistent environment.
 TINY_APP_IMAGE = os.getenv('TINY_APP_IMAGE', '')
 BASE_DIR = os.getcwd()
+
+# LDAP Configuration
+LDAP_SERVER = os.getenv('LDAP_SERVER', 'localhost:1389')
+LDAP_BASE_DN = os.getenv('LDAP_BASE_DN', 'ou=people,dc=example,dc=org')
+LDAP_BIND_DN = os.getenv('LDAP_BIND_DN', 'cn=admin,dc=example,dc=org')
+LDAP_BIND_PASSWORD = os.getenv('LDAP_BIND_PASSWORD', 'adminpassword')
+LDAP_USER_SEARCH_FILTER = os.getenv('LDAP_USER_SEARCH_FILTER', '(|(uid=*{search}*))')
+LDAP_USER_ATTRIBUTES = os.getenv('LDAP_USER_ATTRIBUTES', 'cn,uid,displayName,mail').split(',')
 
 # VOLUME_CLAIM_NAME will be mounted on published app container. It is assumed that
 # BASE_DIR and VOLUME_CLAIM_NAME refer to same file system - otherwise files
@@ -584,6 +593,9 @@ class PublishHandler(CustomAPIHandler):
             self._return_error(400, f'{app_type} is not a valid app type')
             return
 
+        # Get allowed users if provided
+        allowed_users = input_data.get('allowedUsers', [])
+
         api_route = f'{TINY_APP_SERVER_URL}{TinyAppServerEndpoint.CREATE.value}'
 
         appDetail = {
@@ -602,6 +614,10 @@ class PublishHandler(CustomAPIHandler):
             ],
             'mainVolumeClaimName': VOLUME_CLAIM_NAME
         }
+
+        # Add allowed users if provided
+        if allowed_users and len(allowed_users) > 0:
+            appDetail['allowedUsers'] = allowed_users
 
         # TODO Mount additional volume claims
 
@@ -852,6 +868,84 @@ class DeleteAppHandler(CustomAPIHandler):
         }))
 
 
+class SearchUsersHandler(CustomAPIHandler):
+    @tornado.web.authenticated
+    async def get(self):
+        logger.info('Received request to SearchUsersHandler')
+        
+        # Get search query parameter
+        search_query = self.get_argument('query', '')
+        if not search_query or len(search_query.strip()) < 2:
+            self.finish(json.dumps({
+                'data': {
+                    'users': []
+                }
+            }))
+            return
+        
+        # Check if LDAP is configured
+        if not LDAP_SERVER or not LDAP_BASE_DN:
+            logger.warning('LDAP not configured, returning empty results')
+            self.finish(json.dumps({
+                'data': {
+                    'users': []
+                }
+            }))
+            return
+        
+        try:
+            # Connect to LDAP server
+            server = ldap3.Server(LDAP_SERVER, get_info=ldap3.ALL)
+            
+            # Bind with service account if credentials provided, otherwise anonymous
+            if LDAP_BIND_DN and LDAP_BIND_PASSWORD:
+                conn = ldap3.Connection(server, LDAP_BIND_DN, LDAP_BIND_PASSWORD, auto_bind=True)
+            else:
+                conn = ldap3.Connection(server, auto_bind=True)
+            
+            # Search for users
+            search_filter = LDAP_USER_SEARCH_FILTER.format(search=ldap3.utils.conv.escape_filter_chars(search_query))
+            
+            success = conn.search(
+                search_base=LDAP_BASE_DN,
+                search_filter=search_filter,
+                search_scope=ldap3.SUBTREE,
+                attributes=LDAP_USER_ATTRIBUTES,
+                size_limit=20  # Limit results to prevent overwhelming UI
+            )
+            
+            users = []
+            if success:
+                for entry in conn.entries:
+                    user_data = {
+                        'uid': str(entry.uid) if hasattr(entry, 'uid') and entry.uid else '',
+                        'cn': str(entry.cn) if hasattr(entry, 'cn') and entry.cn else '',
+                        'displayName': str(entry.displayName) if hasattr(entry, 'displayName') and entry.displayName else '',
+                        'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else ''
+                    }
+                    
+                    # Use displayName if available, otherwise fallback to cn, then uid
+                    user_data['label'] = user_data['displayName'] or user_data['cn'] or user_data['uid']
+                    user_data['value'] = user_data['uid'] or user_data['cn']
+                    
+                    if user_data['value']:  # Only include users with a valid identifier
+                        users.append(user_data)
+            
+            conn.unbind()
+            
+            logger.info(f'Found {len(users)} users for query: {search_query}')
+            
+            self.finish(json.dumps({
+                'data': {
+                    'users': users
+                }
+            }))
+            
+        except Exception as e:
+            logger.error(f'Error searching LDAP users: {str(e)}')
+            self._return_error(500, 'Error searching for users')
+
+
 class PingHandler(CustomAPIHandler):
     @tornado.web.authenticated
     async def get(self):
@@ -896,6 +990,7 @@ def setup_handlers(web_app):
         (url_path_join(base_url, tiny_app_subpath, 'delete_app'), DeleteAppHandler),
         (url_path_join(base_url, tiny_app_subpath, 'logs'), LogsHandler),
         (url_path_join(base_url, tiny_app_subpath, 'preview_logs'), PreviewLogsHandler),
+        (url_path_join(base_url, tiny_app_subpath, 'search_users'), SearchUsersHandler),
         (url_path_join(base_url, tiny_app_subpath, 'ping'), PingHandler)
     ]
 
