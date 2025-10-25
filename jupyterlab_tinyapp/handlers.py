@@ -127,7 +127,7 @@ TINY_APP_IMAGE = os.getenv('TINY_APP_IMAGE', '')
 BASE_DIR = os.getcwd()
 
 # LDAP Configuration
-LDAP_SERVER = os.getenv('LDAP_SERVER', 'localhost:1389')
+LDAP_SERVER = os.getenv('LDAP_SERVER', 'openldap.tinyapp.svc.cluster.local:389')
 LDAP_BASE_DN = os.getenv('LDAP_BASE_DN', 'ou=people,dc=example,dc=org')
 LDAP_BIND_DN = os.getenv('LDAP_BIND_DN', 'cn=admin,dc=example,dc=org')
 LDAP_BIND_PASSWORD = os.getenv('LDAP_BIND_PASSWORD', 'adminpassword')
