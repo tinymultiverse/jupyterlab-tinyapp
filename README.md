@@ -61,7 +61,7 @@ See [User Guide](./docs/USER_GUIDE.md)
 
 #### Development install
 
-To develop the extension locally, first set the required environment variables in terminal, then follow:
+To develop the extension locally, first run "source envs.sh" to set the required environment variables in terminal, then follow:
 
 ```bash
 # Activate your conda env (you can follow this tutorial: https://jupyterlab.readthedocs.io/en/stable/extension/extension_tutorial.html)

@@ -6,8 +6,6 @@ export CONDA_ENV_DIR="/opt/conda"
 export VALIDATE_SSL="true"
 export TINY_APP_IMAGE="tinyapp:ldap"
 export VOLUME_CLAIM_NAME="my-data"
-#export VOLUME_CLAIM_SUB_PATH=
 export VOLUME_CLAIM_MOUNT_PATH="/home/jovyan"
 export AI_ENABLED="false"
-#export OPENAI_API_KEY
 export MOCK_AI_STREAM="false"

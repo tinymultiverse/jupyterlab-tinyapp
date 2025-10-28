@@ -127,6 +127,12 @@ TINY_APP_IMAGE = os.getenv('TINY_APP_IMAGE', '')
 BASE_DIR = os.getcwd()
 
 # LDAP Configuration
+# LDAP_SERVER = os.getenv('LDAP_SERVER', 'openldap.tinyapp.svc.cluster.local:389')
+# LDAP_BASE_DN = os.getenv('LDAP_BASE_DN')
+# LDAP_BIND_DN = os.getenv('LDAP_BIND_DN')
+# LDAP_BIND_PASSWORD = os.getenv('LDAP_BIND_PASSWORD')
+# LDAP_USER_SEARCH_FILTER = os.getenv('LDAP_USER_SEARCH_FILTER', '(|(givenName=*{search}*)(sn=*{search}*))')
+# LDAP_USER_ATTRIBUTES = os.getenv('LDAP_USER_ATTRIBUTES', 'cn,uid,displayName,mail,givenName,sn').split(',')
 LDAP_SERVER = os.getenv('LDAP_SERVER', 'openldap.tinyapp.svc.cluster.local:389')
 LDAP_BASE_DN = os.getenv('LDAP_BASE_DN', 'ou=people,dc=example,dc=org')
 LDAP_BIND_DN = os.getenv('LDAP_BIND_DN', 'cn=admin,dc=example,dc=org')
@@ -876,74 +882,82 @@ class SearchUsersHandler(CustomAPIHandler):
         # Get search query parameter
         search_query = self.get_argument('query', '')
         if not search_query or len(search_query.strip()) < 2:
-            self.finish(json.dumps({
-                'data': {
-                    'users': []
-                }
-            }))
-            return
+            logger.info('Invalid query parameter: must be at least 2 characters')
+            self._return_error(400, 'query parameter must be at least 2 characters')
         
         # Check if LDAP is configured
         if not LDAP_SERVER or not LDAP_BASE_DN:
-            logger.warning('LDAP not configured, returning empty results')
-            self.finish(json.dumps({
-                'data': {
-                    'users': []
-                }
-            }))
+            logger.warning('LDAP not configured')
+            self._return_error(500, 'ldap is not configured: missing LDAP_SERVER or LDAP_BASE_DN')
             return
         
+        # Create LDAP server object
         try:
-            # Connect to LDAP server
             server = ldap3.Server(LDAP_SERVER, get_info=ldap3.ALL)
-            
-            # Bind with service account if credentials provided, otherwise anonymous
+        # Connect and bind to LDAP server
             if LDAP_BIND_DN and LDAP_BIND_PASSWORD:
                 conn = ldap3.Connection(server, LDAP_BIND_DN, LDAP_BIND_PASSWORD, auto_bind=True)
             else:
                 conn = ldap3.Connection(server, auto_bind=True)
-            
-            # Search for users
-            search_filter = LDAP_USER_SEARCH_FILTER.format(search=ldap3.utils.conv.escape_filter_chars(search_query))
-            
+        except Exception as e:
+            logger.error(f'Error connecting to LDAP server: {str(e)}')
+            self._return_error(500, 'Unable to connect to LDAP server')
+            return
+        
+        # Search for users
+        search_filter = LDAP_USER_SEARCH_FILTER.format(search=ldap3.utils.conv.escape_filter_chars(search_query))
+        
+        try:
             success = conn.search(
                 search_base=LDAP_BASE_DN,
                 search_filter=search_filter,
                 search_scope=ldap3.SUBTREE,
                 attributes=LDAP_USER_ATTRIBUTES,
-                size_limit=20  # Limit results to prevent overwhelming UI
+                size_limit=100  # Limit results
             )
             
-            users = []
-            if success:
-                for entry in conn.entries:
-                    user_data = {
-                        'uid': str(entry.uid) if hasattr(entry, 'uid') and entry.uid else '',
-                        'cn': str(entry.cn) if hasattr(entry, 'cn') and entry.cn else '',
-                        'displayName': str(entry.displayName) if hasattr(entry, 'displayName') and entry.displayName else '',
-                        'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else ''
-                    }
-                    
-                    # Use displayName if available, otherwise fallback to cn, then uid
-                    user_data['label'] = user_data['displayName'] or user_data['cn'] or user_data['uid']
-                    user_data['value'] = user_data['uid'] or user_data['cn']
-                    
-                    if user_data['value']:  # Only include users with a valid identifier
-                        users.append(user_data)
-            
-            conn.unbind()
-            
-            logger.info(f'Found {len(users)} users for query: {search_query}')
-            
-            self.finish(json.dumps({
-                'data': {
-                    'users': users
-                }
-            }))
-            
+            if not success:
+                conn.unbind()
+                logger.error('LDAP search operation failed')
+                self._return_error(500, 'Failed to search LDAP directory')
+                return
         except Exception as e:
-            logger.error(f'Error searching LDAP users: {str(e)}')
-            self._return_error(500, 'Error searching for users')
+            conn.unbind()
+            logger.error(f'Error during LDAP search: {str(e)}')
+            self._return_error(500, 'error searching ldap directory')
+            return
+
+        # Process search results
+        users = []
+        try:
+            for entry in conn.entries:
+                user_data = {
+                    'uid': str(entry.uid) if hasattr(entry, 'uid') and entry.uid else '',
+                    'cn': str(entry.cn) if hasattr(entry, 'cn') and entry.cn else '',
+                    'displayName': str(entry.displayName) if hasattr(entry, 'displayName') and entry.displayName else '',
+                    'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else '',
+                    'givenName': str(entry.givenName) if hasattr(entry, 'givenName') and entry.givenName else '',
+                    'sn': str(entry.sn) if hasattr(entry, 'sn') and entry.sn else ''
+                }
+                # Use displayName if available, otherwise fallback to cn, then uid
+                user_data['label'] = user_data['displayName'] or user_data['cn'] or user_data['uid']
+                user_data['value'] = user_data['uid'] or user_data['cn']
+                
+                if user_data['value']:  # Only include users with a valid identifier
+                    users.append(user_data)
+        except Exception as e:
+            logger.warning(f'Error processing LDAP search results: {str(e)}')
+            self._return_error(500, 'error processing search results')
+
+        conn.unbind()
+        
+        logger.info(f'Found {len(users)} users for query: {search_query}')
+        
+        self.finish(json.dumps({
+            'data': {
+                'users': users
+            }
+        }))
 
 
 class PingHandler(CustomAPIHandler):
