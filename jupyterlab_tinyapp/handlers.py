@@ -38,7 +38,11 @@ from traitlets.config import Application
 import re
 from distutils.util import strtobool
 from .generation.constants import StreamDestination
-from .generation.generator import MockStreamingGenerator, OpenAIStreamingGenerator
+from .generation.generator import (
+    MockStreamingGenerator, 
+    OpenAIStreamingGenerator,
+    extract_code_from_notebook
+)
 from .generation.streaming import StreamParser
 
 app = Application.instance()
@@ -724,17 +728,38 @@ class GenerateAppHandler(tornado.websocket.WebSocketHandler):
 
         # Start the asynchronous streaming process
         logger.info("Start streaming generation...")
-        await self.stream_response(app_src_directory, prompt, image)
+        await self.stream_response(app_src_directory, prompt, image, notebook_path)
 
-    async def stream_response(self, app_src_directory, prompt, image):
+    async def stream_response(self, app_src_directory, prompt, image, notebook_path):
         full_msg  = ""
-        for chunk in self.generate_response(app_src_directory, prompt, image):
-            full_msg += chunk
-            self.write_message(chunk)
-        logger.debug(f"Entire streamed response: {full_msg}")
+        try:
+            for chunk in self.generate_response(app_src_directory, prompt, image, notebook_path):
+                full_msg += chunk
+                self.write_message(chunk)
+            logger.debug(f"Entire streamed response: {full_msg}")
+        except Exception as e:
+            error_message = f"Error generating app: {str(e)}"
+            logger.error(error_message, exc_info=True)
+            self.close(code=1011, reason=error_message)
 
-    def generate_response(self, app_src_directory, prompt, image):
-        stream = code_generator.create_stream(prompt, image)
+    def generate_response(self, app_src_directory, prompt, image, notebook_path):
+        # Determine if this is an iteration request using LLM classification
+        is_iteration = code_generator.classify_intent(prompt)
+        existing_code = None
+        
+        if is_iteration:
+            # Extract existing code from the notebook
+            existing_code = extract_code_from_notebook(notebook_path)
+            if existing_code:
+                logger.info(f"Detected iteration request. Existing code length: {len(existing_code)} characters")
+            else:
+                logger.info("Detected iteration request but no existing code found. Treating as new app creation.")
+                is_iteration = False
+        else:
+            logger.info("Detected new app creation request")
+        
+        # Create stream with or without existing code context
+        stream = code_generator.create_stream(prompt, image, existing_code=existing_code)
 
         generated_requirements = ""
         stream_destination = StreamDestination.NOTEBOOK

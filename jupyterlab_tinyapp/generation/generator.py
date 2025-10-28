@@ -17,19 +17,63 @@ limitations under the License.
 import logging
 import os
 import time
-from typing import Generator
+from typing import Generator, Optional
 from openai import OpenAI
+import nbformat
+
+def extract_code_from_notebook(notebook_path: str) -> Optional[str]:
+    """
+    Extract code cells from a notebook file.
+    
+    Args:
+        notebook_path: Path to the .ipynb file
+        
+    Returns:
+        String containing all code from code cells, or None if notebook is empty/invalid
+    """
+    try:
+        if not os.path.exists(notebook_path):
+            return None
+            
+        with open(notebook_path, 'r', encoding='utf-8') as f:
+            notebook = nbformat.read(f, as_version=4)
+        
+        code_cells = []
+        for cell in notebook.cells:
+            if cell.cell_type == 'code':
+                code_cells.append(cell.source)
+        
+        if not code_cells:
+            return None
+            
+        return '\n\n'.join(code_cells)
+    except Exception as e:
+        # Log error but don't fail - just return None
+        return None
 
 class StreamingGenerator:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    def create_stream(self, prompt, image) -> Generator[str, None, None]:
+    def classify_intent(self, prompt: str) -> bool:
+        """
+        Classify if the user prompt is asking to iterate on existing code or create new app.
+        
+        Args:
+            prompt: The user's prompt text
+        
+        Returns:
+            True if the prompt indicates iteration on existing code, False for new app creation.
+        """
         # Abstract method to be implemented by subclasses
         raise NotImplementedError("Subclasses should implement this method.")
 
-    def get_sys_prompt(self, include_image):
-        sys_prompt = """
+    def create_stream(self, prompt, image, existing_code=None) -> Generator[str, None, None]:
+        # Abstract method to be implemented by subclasses
+        raise NotImplementedError("Subclasses should implement this method.")
+
+    def get_sys_prompt(self, include_image, is_iteration=False):
+        base_instructions = """
             You will respond in the following format: 
             - a one-liner about the app you've created in-between the tags <<desc>> <</desc>>,
             - the streamlit code itself in-between <<code>> <</code>>,
@@ -38,15 +82,20 @@ class StreamingGenerator:
             - If the user should be able to run without modifications then don't generate the notes nor the <<notes>> <</notes>> tags.
             - If the user is not describing an app that can be generated with Streamlit please output or if their image doesn't align with an app they're describing, then in one or two sentence(s) tell them that they can request apps not whatever they requested in-between <<retry>> <</retry>>
             - In your output DO NOT INCLUDE MARKDOWN FORMATTING like ```python ... ```
-            - IMPORTANT: EVERY TAG SHOULD HAVE A CORRESPONDING CLOSING TAG with a backslash \ like <<code>> import numpy <</code>>
+            - IMPORTANT: EVERY TAG SHOULD HAVE A CORRESPONDING CLOSING TAG with a backslash like <<code>> import numpy <</code>>
             - ALSO: there should be no trailing or leading whitespace/newlines between tags and the content they encapsulate
             
             Take a deep breath, think step by step, you got this!
         """
-        if include_image:
-            return "You are an expert programmer. Given an app description and an image depicting the required layout, you'll write clear and well-documented Streamlit app code. You MUST try to adhere to BOTH the layout in the image as well as the description itself.\n" + sys_prompt
-
-        return "You are an expert programmer. Given an app description, you'll write clear and well-documented Streamlit app code.\n" + sys_prompt
+        
+        if is_iteration:
+            role_description = "You are an expert programmer. The user has existing Streamlit app code and wants to make modifications to it. You'll update the code based on their request while preserving functionality they don't want to change."
+        elif include_image:
+            role_description = "You are an expert programmer. Given an app description and an image depicting the required layout, you'll write clear and well-documented Streamlit app code. You MUST try to adhere to BOTH the layout in the image as well as the description itself."
+        else:
+            role_description = "You are an expert programmer. Given an app description, you'll write clear and well-documented Streamlit app code."
+        
+        return role_description + "\n" + base_instructions
 
 class OpenAIStreamingGenerator(StreamingGenerator):
     def __init__(self, logger):
@@ -65,11 +114,61 @@ class OpenAIStreamingGenerator(StreamingGenerator):
         self.logger.info(f'OpenAI text model: {self.text_model}')
         self.logger.info(f'OpenAI image model: {self.image_model}')
 
-    def create_stream(self, prompt, image):
+    def classify_intent(self, prompt: str) -> bool:
+        """
+        Classify if the user prompt is asking to iterate on existing code or create new app.
+        
+        Args:
+            prompt: The user's prompt text
+        
+        Returns:
+            True if the prompt indicates iteration on existing code, False for new app creation.
+        """
+        classification_prompt = f"""You are a classifier that determines user intent for a Streamlit app code generator.
+
+The user can either:
+1. Request a NEW app to be created from scratch
+2. Request to MODIFY existing code in their current notebook
+
+Analyze this user prompt and respond with ONLY one word: either "new" or "modify"
+
+User prompt: "{prompt}"
+
+Your classification (new or modify):"""
+
+        response = self.client.chat.completions.create(
+            model=self.text_model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a precise classifier. Respond with only 'new' or 'modify'."
+                },
+                {
+                    "role": "user",
+                    "content": classification_prompt
+                }
+            ],
+            max_tokens=10,
+            temperature=0
+        )
+        
+        classification = response.choices[0].message.content.strip().lower()
+        
+        self.logger.info(f"LLM classified prompt as: '{classification}'")
+        
+        # Return True if it's a modification request
+        is_modify = "modify" in classification
+        
+        self.logger.info(f"classify_intent returning: {is_modify}")
+        
+        return is_modify
+
+    def create_stream(self, prompt, image, existing_code=None):
         model_id = self.text_model
+        is_iteration = existing_code is not None
 
         if len(self.messages) == 0:
-            sys_prompt = self.get_sys_prompt(image!=None)
+            sys_prompt = self.get_sys_prompt(image!=None, is_iteration=is_iteration)
             self.messages.append(
                 {
                     "role": "system",
@@ -89,9 +188,22 @@ class OpenAIStreamingGenerator(StreamingGenerator):
                 }
             })
 
+        # Construct the user prompt
+        user_text = prompt
+        if is_iteration and existing_code:
+            user_text = f"""Here is the existing Streamlit app code:
+
+```python
+{existing_code}
+```
+
+User request: {prompt}
+
+Please update the code based on the user's request."""
+
         user_query_content.append({
             "type": "text",
-            "text": prompt,
+            "text": user_text,
         })
 
         self.messages.append(
@@ -130,7 +242,14 @@ class MockStreamingGenerator(StreamingGenerator):
     def __init__(self, logger):
         super().__init__(logger)
 
-    def create_stream(self, prompt, image):
+    def classify_intent(self, prompt: str) -> bool:
+        """
+        Mock implementation - always returns False (new app).
+        """
+        self.logger.info("Mock classifier: always returning False (new app)")
+        return False
+
+    def create_stream(self, prompt, image, existing_code=None):
         # Mock implementation of generate method
         mock_stream = ['', '<<', 'desc', '>>\n', 'The', ' app', ' displays', ' the', ' last', ' week', ' of', ' Google', "'s", ' stock', ' price', ' using', ' Yahoo', ' Finance', ' data', '.\n', '<', '</', 'desc', '>>\n\n',
         '<<', 'code', '>>\n', 'import', ' stream', 'lit', ' as', ' st', '\n', 'import', ' y', 'finance', ' as', ' y', 'f', '\n', 'from', ' datetime', ' import', ' datetime', ',', ' timedelta', '\n\n', 
