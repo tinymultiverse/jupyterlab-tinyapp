@@ -127,18 +127,12 @@ TINY_APP_IMAGE = os.getenv('TINY_APP_IMAGE', '')
 BASE_DIR = os.getcwd()
 
 # LDAP Configuration
-# LDAP_SERVER = os.getenv('LDAP_SERVER', 'openldap.tinyapp.svc.cluster.local:389')
-# LDAP_BASE_DN = os.getenv('LDAP_BASE_DN')
-# LDAP_BIND_DN = os.getenv('LDAP_BIND_DN')
-# LDAP_BIND_PASSWORD = os.getenv('LDAP_BIND_PASSWORD')
-# LDAP_USER_SEARCH_FILTER = os.getenv('LDAP_USER_SEARCH_FILTER', '(|(givenName=*{search}*)(sn=*{search}*))')
-# LDAP_USER_ATTRIBUTES = os.getenv('LDAP_USER_ATTRIBUTES', 'cn,uid,displayName,mail,givenName,sn').split(',')
 LDAP_SERVER = os.getenv('LDAP_SERVER', 'openldap.tinyapp.svc.cluster.local:389')
-LDAP_BASE_DN = os.getenv('LDAP_BASE_DN', 'ou=people,dc=example,dc=org')
-LDAP_BIND_DN = os.getenv('LDAP_BIND_DN', 'cn=admin,dc=example,dc=org')
-LDAP_BIND_PASSWORD = os.getenv('LDAP_BIND_PASSWORD', 'adminpassword')
-LDAP_USER_SEARCH_FILTER = os.getenv('LDAP_USER_SEARCH_FILTER', '(|(uid=*{search}*))')
-LDAP_USER_ATTRIBUTES = os.getenv('LDAP_USER_ATTRIBUTES', 'cn,uid,displayName,mail').split(',')
+LDAP_BASE_DN = os.getenv('LDAP_BASE_DN')
+LDAP_BIND_DN = os.getenv('LDAP_BIND_DN')
+LDAP_BIND_PASSWORD = os.getenv('LDAP_BIND_PASSWORD')
+LDAP_USER_SEARCH_FILTER = os.getenv('LDAP_USER_SEARCH_FILTER', '(|(givenName=*{search}*)(sn=*{search}*))')
+LDAP_USER_ATTRIBUTES = os.getenv('LDAP_USER_ATTRIBUTES', 'cn,uid,displayName,mail,givenName,sn').split(',')
 
 # VOLUME_CLAIM_NAME will be mounted on published app container. It is assumed that
 # BASE_DIR and VOLUME_CLAIM_NAME refer to same file system - otherwise files
