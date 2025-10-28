@@ -663,7 +663,9 @@ def valid_app_name(app_name: str) -> bool:
     :param app_name: the given name for the application
     :return:
     """
-    return bool(re.match("^[A-Za-z0-9_-]*$", app_name))
+    # Must be non-empty and only contain alphanumeric characters, "-" or "_"
+    cleaned = app_name.strip() if app_name else ''
+    return bool(cleaned and re.match("^[A-Za-z0-9_-]+$", cleaned))
 
 class NewAppDirectoryHandler(CustomAPIHandler):
     @tornado.web.authenticated
@@ -912,8 +914,8 @@ class SearchUsersHandler(CustomAPIHandler):
             
             if not success:
                 conn.unbind()
-                logger.error('LDAP search operation failed')
-                self._return_error(500, 'Failed to search LDAP directory')
+                logger.error('No results found or error during LDAP search')
+                self._return_error(500, 'No results found or error during LDAP search')
                 return
         except Exception as e:
             conn.unbind()
@@ -929,30 +931,28 @@ class SearchUsersHandler(CustomAPIHandler):
                     'uid': str(entry.uid) if hasattr(entry, 'uid') and entry.uid else '',
                     'cn': str(entry.cn) if hasattr(entry, 'cn') and entry.cn else '',
                     'displayName': str(entry.displayName) if hasattr(entry, 'displayName') and entry.displayName else '',
-                    'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else '',
-                    'givenName': str(entry.givenName) if hasattr(entry, 'givenName') and entry.givenName else '',
-                    'sn': str(entry.sn) if hasattr(entry, 'sn') and entry.sn else ''
+                    'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else ''
                 }
-                # Use displayName if available, otherwise fallback to cn, then uid
-                user_data['label'] = user_data['displayName'] or user_data['cn'] or user_data['uid']
-                user_data['value'] = user_data['uid'] or user_data['cn']
+        
+                user_data['label'] = user_data['cn']
+                user_data['value'] = user_data['uid']
                 
                 if user_data['value']:  # Only include users with a valid identifier
                     users.append(user_data)
+                
+            logger.info(f'Found {len(users)} users for query: {search_query}')
+            
+            self.finish(json.dumps({
+                'data': {
+                    'users': users
+                }
+            }))
         except Exception as e:
             logger.warning(f'Error processing LDAP search results: {str(e)}')
             self._return_error(500, 'error processing search results')
 
         conn.unbind()
         
-        logger.info(f'Found {len(users)} users for query: {search_query}')
-        
-        self.finish(json.dumps({
-            'data': {
-                'users': users
-            }
-        }))
-
 
 class PingHandler(CustomAPIHandler):
     @tornado.web.authenticated
