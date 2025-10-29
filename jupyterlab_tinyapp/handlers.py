@@ -738,25 +738,37 @@ class GenerateAppHandler(tornado.websocket.WebSocketHandler):
                 self.write_message(chunk)
             logger.debug(f"Entire streamed response: {full_msg}")
         except Exception as e:
-            error_message = f"Error generating app: {str(e)}"
+            error_message = str(e)
             logger.error(error_message, exc_info=True)
             self.close(code=1011, reason=error_message)
 
     def generate_response(self, app_src_directory, prompt, image, notebook_path):
-        # Determine if this is an iteration request using LLM classification
-        is_iteration = code_generator.classify_intent(prompt)
-        existing_code = None
+        # Assert that code_generator is available (it always will be since this handler 
+        # is only registered when AI_ENABLED is True)
+        assert code_generator is not None, "code_generator must be initialized"
         
-        if is_iteration:
-            # Extract existing code from the notebook
-            existing_code = extract_code_from_notebook(notebook_path)
-            if existing_code:
-                logger.info(f"Detected iteration request. Existing code length: {len(existing_code)} characters")
-            else:
-                logger.info("Detected iteration request but no existing code found. Treating as new app creation.")
-                is_iteration = False
+        # Check if notebook has existing code
+        existing_code = extract_code_from_notebook(notebook_path)
+        has_existing_code = bool(existing_code and existing_code.strip())
+        
+        # Determine if this is an iteration request using LLM classification
+        is_iteration = False
+        if has_existing_code:
+            # Only classify if there's existing code
+            is_iteration = code_generator.classify_intent(prompt)
+            
+            if not is_iteration:
+                # User has existing code but wants to create a NEW app
+                # This is likely accidental - reject it
+                logger.error(f"Notebook has existing code but user prompt indicates creating a new app")
+                error_msg = 'File must be empty to create new app. To edit existing code, use phrases like "update" or "modify".'
+                raise ValueError(error_msg)
+            
+            assert existing_code is not None  # for type checker
+            logger.info(f"Detected iteration request. Existing code length: {len(existing_code)} characters")
         else:
-            logger.info("Detected new app creation request")
+            logger.info("Detected new app creation request (notebook is empty)")
+            existing_code = None
         
         # Create stream with or without existing code context
         stream = code_generator.create_stream(prompt, image, existing_code=existing_code)

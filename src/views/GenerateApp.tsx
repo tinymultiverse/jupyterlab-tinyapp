@@ -59,17 +59,22 @@ const GenerateApp = async (commands: CommandRegistry, notebook: Notebook, notebo
 			prompt: generateArgs.prompt,
 			image: generateArgs.image
 		};
-		// Clear cells in notebook
-		const numCells = notebook.model?.sharedModel.cells.length
-		if (numCells) {
-			notebook.model?.sharedModel.deleteCellRange(0, numCells)
-		}
-
 		socket.send(JSON.stringify(requestData))
 	};
 
 	var streamDestination = StreamDestination.DESCRIPTION;
+	var cellsCleared = false; // Track if we've cleared cells yet
+	
 	socket.onmessage = async (event) => {
+		// Clear cells on first message received (after backend validation passes)
+		if (!cellsCleared) {
+			const numCells = notebook.model?.sharedModel.cells.length
+			if (numCells) {
+				notebook.model?.sharedModel.deleteCellRange(0, numCells)
+			}
+			cellsCleared = true;
+		}
+		
 		switch (event.data) {
 			case StreamToken.DESCRIPTION_START:
 				streamDestination = StreamDestination.DESCRIPTION;
@@ -125,8 +130,15 @@ const GenerateApp = async (commands: CommandRegistry, notebook: Notebook, notebo
 		};
 	}
 
-	socket.onclose = () => {
-		console.log("WebSocket connection closed");
+	socket.onclose = (event) => {
+		console.log("WebSocket connection closed", event);
+		// Abnormal close
+		if (event.code !== 1000) {
+			const title = event.reason?.includes("File must be empty") 
+				? "Cannot create new app" 
+				: "Failed to generate app";
+			showErrorMessage(title, event.reason);
+		}
 	};
 
 	socket.onerror = (error) => {
