@@ -22,6 +22,8 @@ import {
 
 import { createWebSocket } from '../middleware';
 import { INotebookTracker, Notebook, NotebookActions } from '@jupyterlab/notebook';
+import { JupyterFrontEnd } from '@jupyterlab/application';
+import { getPreviewNotebookPath } from './Preview';
 
 // TODO: pull these out into a separate types file. should probably reorganize a little bit.
 interface GenerateArgs {
@@ -150,17 +152,60 @@ export const generateAppExecutor = async (
   commands: CommandRegistry,
   tracker: INotebookTracker,
   docManager: IDocumentManager,
+  shell: JupyterFrontEnd.IShell,
   args: GenerateArgs
 ): Promise<void> => {
-	const currentWidget = tracker.currentWidget
+	// Check if the preview widget is currently active
+	const currentShellWidget = shell.currentWidget;
+	const isPreviewActive = currentShellWidget && currentShellWidget.id === 'preview-widget';
+	
+	let notebookPath: string;
+	let notebookWidget = tracker.currentWidget;
 
-	if (!currentWidget) {
+	if (isPreviewActive) {
+		// If preview is active, use the notebook path associated with the preview
+		notebookPath = getPreviewNotebookPath();
+		
+		if (!notebookPath) {
+			showErrorMessage("Cannot edit app", "no notebook associated with preview")
+			return
+		}
+
+		// Find the notebook widget for the stored path
+		// We need to open it if it's not already open
+		const widgets = tracker.widgets;
+		let found = false;
+		for (const w of widgets) {
+			if (w.context.path === notebookPath) {
+				notebookWidget = w;
+				found = true;
+				break;
+			}
+		}
+
+		// If the notebook is not open, open it
+		if (!found) {
+			try {
+				const docWidget = await docManager.openOrReveal(notebookPath);
+				if (docWidget && 'content' in docWidget && docWidget.content instanceof Notebook) {
+					notebookWidget = docWidget as any;
+				}
+			} catch (error) {
+				showErrorMessage("failed to open notebook", `Could not open ${notebookPath}`);
+				return;
+			}
+		}
+	} else {
+		// If preview is not active, use the current widget
+		notebookPath = notebookWidget.context.path;
+	}
+
+	if (!notebookWidget) {
 		showErrorMessage("failed to generate app", "notebook must be opened & active")
 		return
 	}
 
-	const notebook: Notebook = currentWidget.content
-	const notebookPath = currentWidget.context.path
+	const notebook: Notebook = notebookWidget.content
 
 	if (!notebookPath.endsWith('.ipynb')) {
 		showErrorMessage("Selected file is not a notebook", "Please open a notebook file to generate an app")

@@ -69,7 +69,7 @@ const extension: JupyterFrontEndPlugin<void> = {
           });
           return;
         }
-        await generateAppExecutor(commands, tracker, docManager, args);
+        await generateAppExecutor(commands, tracker, docManager, shell, args);
       },
       label: 'Generate App',
       isEnabled: () => envVars.ai_enabled

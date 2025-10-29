@@ -33,6 +33,7 @@ let errorWidget: any;
 let widget: any;
 
 let previewId: string;
+let previewNotebookPath: string = ''; // Track the notebook path associated with the preview
 
 const maxWaitTime = 1 * 60 * 1000; // 1 minutes in ms
 const pingInterval = 1 * 1000; // 3 seconds in ms
@@ -92,6 +93,9 @@ export const previewExecutor = async (
     appType = getSelectedAppType(tracker.currentWidget.id);
     notebookPath = tracker.currentWidget.context.path;
   }
+
+  // Store the notebook path for this preview
+  previewNotebookPath = notebookPath;
 
   var result: any
   try {
@@ -155,4 +159,13 @@ export const previewExecutor = async (
     shell.add(widget);
   }
 
+};
+
+/**
+ * Get the notebook path associated with the currently active preview.
+ * This is used to ensure edits are applied to the correct notebook
+ * even if the user has switched to a different file.
+ */
+export const getPreviewNotebookPath = (): string => {
+  return previewNotebookPath;
 };
