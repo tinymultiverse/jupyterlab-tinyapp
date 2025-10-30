@@ -21,7 +21,7 @@ import {
 } from '@jupyterlab/docmanager';
 
 import { createWebSocket } from '../middleware';
-import { INotebookTracker, Notebook, NotebookActions } from '@jupyterlab/notebook';
+import { INotebookTracker, Notebook, NotebookActions, NotebookPanel } from '@jupyterlab/notebook';
 import { JupyterFrontEnd } from '@jupyterlab/application';
 import { getPreviewNotebookPath } from './Preview';
 
@@ -171,20 +171,11 @@ export const generateAppExecutor = async (
 			return
 		}
 
-		// Find the notebook widget for the stored path
-		// We need to open it if it's not already open
-		const widgets = tracker.widgets;
-		let found = false;
-		for (const w of widgets) {
-			if (w.context.path === notebookPath) {
-				notebookWidget = w;
-				found = true;
-				break;
-			}
-		}
+		// Find the notebook widget for the stored path using tracker.find
+		notebookWidget = tracker.find((widget: NotebookPanel) => widget.context.path === notebookPath) || null;
 
 		// If the notebook is not open, open it
-		if (!found) {
+		if (!notebookWidget) {
 			try {
 				const docWidget = await docManager.openOrReveal(notebookPath);
 				if (docWidget && 'content' in docWidget && docWidget.content instanceof Notebook) {
@@ -197,7 +188,7 @@ export const generateAppExecutor = async (
 		}
 	} else {
 		// If preview is not active, use the current widget
-		notebookPath = notebookWidget.context.path;
+		notebookPath = notebookWidget?.context.path || '';
 	}
 
 	if (!notebookWidget) {
