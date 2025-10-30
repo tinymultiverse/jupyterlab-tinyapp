@@ -20,7 +20,7 @@ import { CommandRegistry } from '@lumino/commands';
 import { CustomWidgetCommand } from '../utils/constants';
 import Button from '@material-ui/core/Button';
 import { useStyles } from '../style/styles';
-import { TextField, ThemeProvider, Typography } from '@material-ui/core';
+import { TextField, ThemeProvider, Typography, FormControl, InputLabel, Select, MenuItem } from '@material-ui/core';
 import { theme } from '../style/theme';
 import { RxMagicWand } from "react-icons/rx";
 import { EnvVars } from '../utils/common';
@@ -36,6 +36,7 @@ export const TinyAppPanelWidget = (
 
   const [promptTextInput, setPromptTextInput] = useState("")
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [intent, setIntent] = useState<'new' | 'modify'>('new');
 
   const handlePromptInputChange = (event: { target: { value: React.SetStateAction<string>; }; }) => {
     setPromptTextInput(event.target.value);
@@ -128,13 +129,27 @@ export const TinyAppPanelWidget = (
         variant="contained"
         onClick={async (): Promise<void> => {
           // pull this out as a func
-          await commands.execute(CustomWidgetCommand.GENERATE_APP, { prompt: promptTextInput, image: uploadedImage });
+          await commands.execute(CustomWidgetCommand.GENERATE_APP, { prompt: promptTextInput, image: uploadedImage, intent });
         }}
         className={classes.panelButton}
       >       
         <RxMagicWand size={24}/>
         &nbsp;Generate App
       </Button>
+      {/* Intent Selector */}
+      <FormControl variant="outlined" fullWidth className={classes.mt1}>
+        <InputLabel id="tinyapp-intent-label">Action</InputLabel>
+        <Select
+          labelId="tinyapp-intent-label"
+          id="tinyapp-intent-select"
+          value={intent}
+          onChange={(e: React.ChangeEvent<{ value: unknown }>) => setIntent(e.target.value as 'new' | 'modify')}
+          label="Action"
+        >
+          <MenuItem value={'new'}>Create new app</MenuItem>
+          <MenuItem value={'modify'}>Modify existing app</MenuItem>
+        </Select>
+      </FormControl>
       {/* Text Input Field */}
       <TextField
         // autoFocus={true} // TODO: remove this

@@ -29,6 +29,7 @@ import { getPreviewNotebookPath } from './Preview';
 interface GenerateArgs {
 	prompt: string;
 	image?: string;
+	intent: 'new' | 'modify';
 }
 
 enum StreamDestination {
@@ -54,12 +55,13 @@ const GenerateApp = async (commands: CommandRegistry, notebook: Notebook, notebo
 	
 	const socket = createWebSocket()
 
-	socket.onopen = async () => {
+		socket.onopen = async () => {
 		console.log("WebSocket connection established");
 		const requestData = {
 			notebookPath: notebookPath,
 			prompt: generateArgs.prompt,
-			image: generateArgs.image
+				image: generateArgs.image,
+				intent: generateArgs.intent,
 		};
 		socket.send(JSON.stringify(requestData))
 	};
@@ -135,8 +137,8 @@ const GenerateApp = async (commands: CommandRegistry, notebook: Notebook, notebo
 	socket.onclose = (event) => {
 		console.log("WebSocket connection closed", event);
 		// Abnormal close
-		if (event.code !== 1000) {
-			const title = event.reason?.includes("File must be empty") 
+		if (event.code !== 1000 && event.reason) {
+			const title = event.reason.includes("File must be empty") 
 				? "Cannot create new app" 
 				: "Failed to generate app";
 			showErrorMessage(title, event.reason);

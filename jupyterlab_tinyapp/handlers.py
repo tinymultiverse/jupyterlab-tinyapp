@@ -716,7 +716,8 @@ class GenerateAppHandler(tornado.websocket.WebSocketHandler):
 
         notebook_path_relative = input_data['notebookPath']
         prompt = input_data['prompt']
-        image = input_data['image']
+        image = input_data.get('image')
+        intent = input_data.get('intent')  # expected values: 'new' | 'modify'
 
         notebook_path = os.path.join(BASE_DIR, notebook_path_relative)
         app_src_directory = os.path.dirname(notebook_path)
@@ -728,12 +729,12 @@ class GenerateAppHandler(tornado.websocket.WebSocketHandler):
 
         # Start the asynchronous streaming process
         logger.info("Start streaming generation...")
-        await self.stream_response(app_src_directory, prompt, image, notebook_path)
+        await self.stream_response(app_src_directory, prompt, image, notebook_path, intent)
 
-    async def stream_response(self, app_src_directory, prompt, image, notebook_path):
+    async def stream_response(self, app_src_directory, prompt, image, notebook_path, intent: Optional[str]):
         full_msg  = ""
         try:
-            for chunk in self.generate_response(app_src_directory, prompt, image, notebook_path):
+            for chunk in self.generate_response(app_src_directory, prompt, image, notebook_path, intent):
                 full_msg += chunk
                 self.write_message(chunk)
             logger.debug(f"Entire streamed response: {full_msg}")
@@ -742,7 +743,7 @@ class GenerateAppHandler(tornado.websocket.WebSocketHandler):
             logger.error(error_message, exc_info=True)
             self.close(code=1011, reason=error_message)
 
-    def generate_response(self, app_src_directory, prompt, image, notebook_path):
+    def generate_response(self, app_src_directory, prompt, image, notebook_path, intent: Optional[str]):
         # Assert that code_generator is available (it always will be since this handler 
         # is only registered when AI_ENABLED is True)
         assert code_generator is not None, "code_generator must be initialized"
@@ -750,24 +751,29 @@ class GenerateAppHandler(tornado.websocket.WebSocketHandler):
         # Check if notebook has existing code
         existing_code = extract_code_from_notebook(notebook_path)
         has_existing_code = bool(existing_code and existing_code.strip())
-        
-        # Determine if this is an iteration request using LLM classification
-        is_iteration = False
-        if has_existing_code:
-            # Only classify if there's existing code
-            is_iteration = code_generator.classify_intent(prompt)
-            
-            if not is_iteration:
-                # User has existing code but wants to create a NEW app
-                # This is likely accidental - reject it
-                logger.error(f"Notebook has existing code but user prompt indicates creating a new app")
-                error_msg = 'File must be empty to create new app. To edit existing code, use phrases like "update" or "modify".'
-                raise ValueError(error_msg)
-            
-            assert existing_code is not None  # for type checker
-            logger.info(f"Detected iteration request. Existing code length: {len(existing_code)} characters")
+
+        # Determine iteration based on user-provided intent (mandatory)
+        if intent is None:
+            raise ValueError('intent must be provided as "new" or "modify"')
+        intent_value = intent.strip().lower()
+        if intent_value not in ['new', 'modify']:
+            raise ValueError('intent must be "new" or "modify"')
+
+        is_iteration = intent_value == 'modify'
+
+        # Validate notebook state vs intent
+        if intent_value == 'new' and has_existing_code:
+            logger.error("Notebook has existing code but intent is 'new'")
+            raise ValueError('File must be empty to create new app. To edit existing code, choose "Modify existing app".')
+        if intent_value == 'modify' and not has_existing_code:
+            logger.error("Intent is 'modify' but notebook has no existing code")
+            raise ValueError('No existing code found to modify. To create a new app, choose "Create new app".')
+
+        if is_iteration:
+            assert existing_code is not None
+            logger.info(f"Proceeding with modification. Existing code length: {len(existing_code)} characters")
         else:
-            logger.info("Detected new app creation request (notebook is empty)")
+            logger.info("Proceeding with new app creation")
             existing_code = None
         
         # Create stream with or without existing code context

@@ -29,3 +29,5 @@ Generate app from an image:
 ![generate from image](./assets/generate-from-image.gif)
 
 Continusouly chat with the model to update & iterate on your app.
+
+Note: When generating, choose the Action below the Generate button to explicitly select whether you want to create a new app or modify the currently open notebook. If you choose "Create new app" while the notebook already has code, the request will be rejected. Likewise, choosing "Modify existing app" requires existing code in the notebook.

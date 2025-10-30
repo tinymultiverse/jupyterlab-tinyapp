@@ -55,19 +55,6 @@ class StreamingGenerator:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    def classify_intent(self, prompt: str) -> bool:
-        """
-        Classify if the user prompt is asking to iterate on existing code or create new app.
-        
-        Args:
-            prompt: The user's prompt text
-        
-        Returns:
-            True if the prompt indicates iteration on existing code, False for new app creation.
-        """
-        # Abstract method to be implemented by subclasses
-        raise NotImplementedError("Subclasses should implement this method.")
-
     def create_stream(self, prompt, image, existing_code=None) -> Generator[str, None, None]:
         # Abstract method to be implemented by subclasses
         raise NotImplementedError("Subclasses should implement this method.")
@@ -114,54 +101,6 @@ class OpenAIStreamingGenerator(StreamingGenerator):
         self.logger.info(f'OpenAI text model: {self.text_model}')
         self.logger.info(f'OpenAI image model: {self.image_model}')
 
-    def classify_intent(self, prompt: str) -> bool:
-        """
-        Classify if the user prompt is asking to iterate on existing code or create new app.
-        
-        Args:
-            prompt: The user's prompt text
-        
-        Returns:
-            True if the prompt indicates iteration on existing code, False for new app creation.
-        """
-        classification_prompt = f"""You are a classifier that determines user intent for a Streamlit app code generator.
-
-The user can either:
-1. Request a NEW app to be created from scratch
-2. Request to MODIFY existing code in their current notebook
-
-Analyze this user prompt and respond with ONLY one word: either "new" or "modify"
-
-User prompt: "{prompt}"
-
-Your classification (new or modify):"""
-
-        response = self.client.chat.completions.create(
-            model=self.text_model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a precise classifier. Respond with only 'new' or 'modify'."
-                },
-                {
-                    "role": "user",
-                    "content": classification_prompt
-                }
-            ],
-            max_tokens=10,
-            temperature=0
-        )
-        
-        classification = response.choices[0].message.content.strip().lower()
-        
-        self.logger.info(f"LLM classified prompt as: '{classification}'")
-        
-        # Return True if it's a modification request
-        is_modify = "modify" in classification
-        
-        self.logger.info(f"classify_intent returning: {is_modify}")
-        
-        return is_modify
 
     def create_stream(self, prompt, image, existing_code=None):
         model_id = self.text_model
@@ -241,13 +180,6 @@ Please update the code based on the user's request."""
 class MockStreamingGenerator(StreamingGenerator):
     def __init__(self, logger):
         super().__init__(logger)
-
-    def classify_intent(self, prompt: str) -> bool:
-        """
-        Mock implementation - always returns False (new app).
-        """
-        self.logger.info("Mock classifier: always returning False (new app)")
-        return False
 
     def create_stream(self, prompt, image, existing_code=None):
         # Mock implementation of generate method
