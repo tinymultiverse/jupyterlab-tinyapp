@@ -132,6 +132,35 @@ export const useStyles = makeStyles(() =>
     barColorPrimary: {
       color: 'rgb(219, 221, 225)',
       backgroundColor: 'rgb(219, 221, 225)'
+    },
+    userSearchContainer: {
+      position: 'relative'
+    },
+    selectedUsersContainer: {
+      marginBottom: theme.spacing(1)
+    },
+    selectedUsersChips: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '4px',
+      marginTop: '4px'
+    },
+    searchResultsDropdown: {
+      position: 'absolute',
+      top: '100%',
+      left: 0,
+      right: 0,
+      zIndex: 1000,
+      maxHeight: '200px',
+      overflow: 'auto'
+    },
+    noResultsContainer: {
+      position: 'absolute',
+      top: '100%',
+      left: 0,
+      right: 0,
+      zIndex: 1000,
+      padding: theme.spacing(2)
     }
   })
 );

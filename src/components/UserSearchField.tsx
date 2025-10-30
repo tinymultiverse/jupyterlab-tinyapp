@@ -27,6 +27,7 @@ import {
   CircularProgress
 } from '@material-ui/core';
 import { requestAPI } from '../middleware';
+import { useStyles } from '../style/styles';
 
 interface User {
   uid: string;
@@ -52,6 +53,7 @@ export const UserSearchField: React.FC<UserSearchFieldProps> = ({
   label = "Allowed Users",
   placeholder = "Search for users..."
 }) => {
+  const classes = useStyles();
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -148,14 +150,14 @@ export const UserSearchField: React.FC<UserSearchFieldProps> = ({
   };
 
   return (
-    <Box style={{ position: 'relative' }}>
+    <Box className={classes.userSearchContainer}>
       {/* Selected Users Display */}
       {selectedUsers.length > 0 && (
-        <Box style={{ marginBottom: '8px' }}>
+        <Box className={classes.selectedUsersContainer}>
           <Typography variant="caption" color="textSecondary">
             Selected Users:
           </Typography>
-          <Box style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+          <Box className={classes.selectedUsersChips}>
             {selectedUsers.map((user) => (
               <Chip
                 key={user.value}
@@ -189,17 +191,7 @@ export const UserSearchField: React.FC<UserSearchFieldProps> = ({
       {/* Search Results Dropdown */}
       {showResults && searchResults.length > 0 && (
         <div ref={resultsRef}>
-          <Paper
-            style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              zIndex: 1000,
-              maxHeight: '200px',
-              overflow: 'auto'
-            }}
-          >
+          <Paper className={classes.searchResultsDropdown}>
             <List dense>
               {searchResults.map((user) => (
                 <ListItem
@@ -221,16 +213,7 @@ export const UserSearchField: React.FC<UserSearchFieldProps> = ({
       {/* No results message */}
       {showResults && searchResults.length === 0 && searchText.length >= 2 && !isLoading && (
         <div ref={resultsRef}>
-          <Paper
-            style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              zIndex: 1000,
-              padding: '16px'
-            }}
-          >
+          <Paper className={classes.noResultsContainer}>
             <Typography variant="body2" color="textSecondary">
               No users found for "{searchText}"
             </Typography>

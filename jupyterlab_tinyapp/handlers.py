@@ -127,9 +127,9 @@ TINY_APP_IMAGE = os.getenv('TINY_APP_IMAGE', '')
 BASE_DIR = os.getcwd()
 
 # LDAP Configuration
-LDAP_SERVER = os.getenv('LDAP_SERVER', 'openldap.tinyapp.svc.cluster.local:389')
-LDAP_BASE_DN = os.getenv('LDAP_BASE_DN')
-LDAP_BIND_DN = os.getenv('LDAP_BIND_DN')
+LDAP_ADDR = os.getenv('LDAP_ADDR')
+LDAP_BASE_DN = os.getenv('LDAP_BASE_DN', 'ou=people,dc=example,dc=org')
+LDAP_BIND_DN = os.getenv('LDAP_BIND_DN', 'cn=admin,dc=example,dc=org')
 LDAP_BIND_PASSWORD = os.getenv('LDAP_BIND_PASSWORD')
 LDAP_USER_SEARCH_FILTER = os.getenv('LDAP_USER_SEARCH_FILTER', '(|(givenName=*{search}*)(sn=*{search}*))')
 LDAP_USER_ATTRIBUTES = os.getenv('LDAP_USER_ATTRIBUTES', 'cn,uid,displayName,mail,givenName,sn').split(',')
@@ -881,16 +881,15 @@ class SearchUsersHandler(CustomAPIHandler):
             logger.info('Invalid query parameter: must be at least 2 characters')
             self._return_error(400, 'query parameter must be at least 2 characters')
         
-        # Check if LDAP is configured
-        if not LDAP_SERVER or not LDAP_BASE_DN:
+        if not LDAP_ADDR or not LDAP_BASE_DN:
             logger.warning('LDAP not configured')
-            self._return_error(500, 'ldap is not configured: missing LDAP_SERVER or LDAP_BASE_DN')
+            self._return_error(500, 'ldap is not configured: missing LDAP_ADDR or LDAP_BASE_DN')
             return
         
         # Create LDAP server object
         try:
-            server = ldap3.Server(LDAP_SERVER, get_info=ldap3.ALL)
-        # Connect and bind to LDAP server
+            server = ldap3.Server(LDAP_ADDR, get_info=ldap3.ALL)
+            # Connect and bind to LDAP server
             if LDAP_BIND_DN and LDAP_BIND_PASSWORD:
                 conn = ldap3.Connection(server, LDAP_BIND_DN, LDAP_BIND_PASSWORD, auto_bind=True)
             else:
@@ -909,7 +908,7 @@ class SearchUsersHandler(CustomAPIHandler):
                 search_filter=search_filter,
                 search_scope=ldap3.SUBTREE,
                 attributes=LDAP_USER_ATTRIBUTES,
-                size_limit=100  # Limit results
+                size_limit=1000
             )
             
             if not success:
@@ -925,31 +924,27 @@ class SearchUsersHandler(CustomAPIHandler):
 
         # Process search results
         users = []
-        try:
-            for entry in conn.entries:
-                user_data = {
-                    'uid': str(entry.uid) if hasattr(entry, 'uid') and entry.uid else '',
-                    'cn': str(entry.cn) if hasattr(entry, 'cn') and entry.cn else '',
-                    'displayName': str(entry.displayName) if hasattr(entry, 'displayName') and entry.displayName else '',
-                    'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else ''
-                }
-        
-                user_data['label'] = user_data['cn']
-                user_data['value'] = user_data['uid']
-                
-                if user_data['value']:  # Only include users with a valid identifier
-                    users.append(user_data)
-                
-            logger.info(f'Found {len(users)} users for query: {search_query}')
+        for entry in conn.entries:
+            user_data = {
+                'uid': str(entry.uid) if hasattr(entry, 'uid') and entry.uid else '',
+                'cn': str(entry.cn) if hasattr(entry, 'cn') and entry.cn else '',
+                'displayName': str(entry.displayName) if hasattr(entry, 'displayName') and entry.displayName else '',
+                'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else ''
+            }
+    
+            user_data['label'] = user_data['cn']
+            user_data['value'] = user_data['uid']
             
-            self.finish(json.dumps({
-                'data': {
-                    'users': users
-                }
-            }))
-        except Exception as e:
-            logger.warning(f'Error processing LDAP search results: {str(e)}')
-            self._return_error(500, 'error processing search results')
+            if user_data['value']:  # Only include users with a valid identifier
+                users.append(user_data)
+            
+        logger.info(f'Found {len(users)} users for query: {search_query}')
+        
+        self.finish(json.dumps({
+            'data': {
+                'users': users
+            }
+        }))
 
         conn.unbind()
         
