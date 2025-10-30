@@ -570,7 +570,7 @@ class PublishHandler(CustomAPIHandler):
         # Validate app name
         if not valid_app_name(input_data['appTitle']):
             logger.info('Invalid app name. Must be alphanumeric with no special characters other than "-" or "_"')
-            self._return_error(400, 'invalid app directory name. Must be alphanumeric with no special characters other than "-" or "_"')
+            self._return_error(400, 'invalid app name. Must be alphanumeric with no special characters other than "-" or "_"')
             return
         # Validate notebook path exists
         notebook_path = input_data['notebookPath']
