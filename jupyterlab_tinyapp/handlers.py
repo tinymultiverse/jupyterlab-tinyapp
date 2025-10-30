@@ -567,6 +567,11 @@ class PublishHandler(CustomAPIHandler):
         input_data = self.get_json_body()
         logger.info(f'Received request to PublishHandler with input:\n{input_data}')
 
+        # Validate app name
+        if not valid_app_name(input_data['appTitle']):
+            logger.info('Invalid app name. Must be alphanumeric with no special characters other than "-" or "_"')
+            self._return_error(400, 'invalid app directory name. Must be alphanumeric with no special characters other than "-" or "_"')
+            return
         # Validate notebook path exists
         notebook_path = input_data['notebookPath']
         if not os.path.exists(notebook_path):
