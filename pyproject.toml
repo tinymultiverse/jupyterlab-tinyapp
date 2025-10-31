@@ -26,6 +26,7 @@ dependencies = [
     "openai==1.12.0",
     "aiofiles==23.2.1",
     "ldap3>=2.9.1",
+    "requests>=2.25.0",
 ]
 dynamic = ["version", "description", "authors", "urls", "keywords"]
 
