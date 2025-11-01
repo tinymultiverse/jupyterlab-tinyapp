@@ -30,6 +30,7 @@
     "src/components/Common.tsx",
     "src/components/Logs.tsx",
     "src/components/AppCard.tsx",
+    "src/components/UserSearchField.tsx",
     "src/views/NewAppDir.tsx",
     "src/views/GenerateApp.tsx",
     "src/views/Preview.tsx",

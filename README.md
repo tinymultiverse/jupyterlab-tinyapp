@@ -63,9 +63,12 @@ See [User Guide](./docs/USER_GUIDE.md)
 
 #### Development install
 
-To develop the extension locally, first set the required environment variables in terminal, then follow:
+To develop the extension locally:
 
 ```bash
+# Set necessary environment variables
+source envs.sh
+
 # Activate your conda env (you can follow this tutorial: https://jupyterlab.readthedocs.io/en/stable/extension/extension_tutorial.html)
 conda activate jupyterlab-ext
 

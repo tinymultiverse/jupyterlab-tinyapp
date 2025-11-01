@@ -16,7 +16,12 @@
     "name": "Kyong Chan Lee"
   },
   "contributors": [
-    { "name": "Kyong Chan Lee" }, { "name": "Julia Kalimova" }
+    {
+      "name": "Kyong Chan Lee"
+    },
+    {
+      "name": "Julia Kalimova"
+    }
   ],
   "files": [
     "lib/**/*.{d.ts,eot,gif,html,jpg,js,js.map,json,png,svg,woff2,ttf}",
