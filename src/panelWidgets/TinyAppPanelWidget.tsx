@@ -20,7 +20,7 @@ import { CommandRegistry } from '@lumino/commands';
 import { CustomWidgetCommand } from '../utils/constants';
 import Button from '@material-ui/core/Button';
 import { useStyles } from '../style/styles';
-import { TextField, ThemeProvider, Typography, FormControl, InputLabel, Select, MenuItem } from '@material-ui/core';
+import { TextField, ThemeProvider, Typography, FormControl, Select, MenuItem, IconButton, Tooltip } from '@material-ui/core';
 import { theme } from '../style/theme';
 import { RxMagicWand } from "react-icons/rx";
 import { EnvVars } from '../utils/common';
@@ -125,56 +125,58 @@ export const TinyAppPanelWidget = (
 {/* TODO: pull this all out into a component */}
 { envVars.ai_enabled? 
   <>     
-      <Button
-        variant="contained"
-        onClick={async (): Promise<void> => {
-          // pull this out as a func
-          await commands.execute(CustomWidgetCommand.GENERATE_APP, { prompt: promptTextInput, image: uploadedImage, intent });
-        }}
-        className={classes.panelButton}
-      >       
-        <RxMagicWand size={24}/>
-        &nbsp;Generate App
-      </Button>
-      {/* Intent Selector */}
-      <FormControl variant="outlined" fullWidth className={classes.mt1}>
-        <InputLabel id="tinyapp-intent-label">Action</InputLabel>
-        <Select
-          labelId="tinyapp-intent-label"
-          id="tinyapp-intent-select"
-          value={intent}
-          onChange={(e: React.ChangeEvent<{ value: unknown }>) => setIntent(e.target.value as 'new' | 'modify')}
-          label="Action"
-        >
-          <MenuItem value={'new'}>Create new app</MenuItem>
-          <MenuItem value={'modify'}>Modify existing app</MenuItem>
-        </Select>
-      </FormControl>
-      {/* Text Input Field */}
-      <TextField
-        // autoFocus={true} // TODO: remove this
-        label="Write your prompt"
-        variant="outlined"
-        fullWidth
-        value={promptTextInput}
-        onChange={handlePromptInputChange}
-        className={classes.generateInput}
-        multiline
-        rows={2}
-        maxRows={4}
-      />
+      <div className={classes.promptBox}>
+        <TextField
+          label="Write your prompt"
+          variant="outlined"
+          fullWidth
+          value={promptTextInput}
+          onChange={handlePromptInputChange}
+          className={classes.generateInput}
+          InputProps={{ classes: { notchedOutline: classes.hideOutline } }}
+          multiline
+          rows={3}
+          rowsMax={6}
+        />
+        <div className={classes.promptActionsRow}>
+          <FormControl variant="outlined" size="small" className={classes.smallSelect}>
+            <Select
+              id="tinyapp-intent-select"
+              value={intent}
+              onChange={(e: React.ChangeEvent<{ value: unknown }>) => setIntent(e.target.value as 'new' | 'modify')}
+            >
+              <MenuItem value={'new'}>New</MenuItem>
+              <MenuItem value={'modify'}>Edit</MenuItem>
+            </Select>
+          </FormControl>
+          {/* Wand icon remains in the mock row; this row holds only the select for now */}
+        </div>
+      </div>
 
-      <div className={`${classes.fileUploadContainer} ${classes.mt1}`}>
-        <label htmlFor="file-upload" className={classes.mb1}>
-          Mock Design
-        </label>
-        <input id="file-upload" type="file" accept="image/*" onChange={handleImageChange}/>
-        
-        {uploadedImage && (
-          <div className={`${classes.mt1}`}>
-            <img src={uploadedImage} alt="Uploaded" style={{ width: '50px', height: '50px' }} />
-          </div>
-        )}
+      {/* Mock design row with generate icon at right */}
+      <div className={`${classes.mockRow} ${classes.mt1}`}>
+        <div className={`${classes.fileUploadContainer} ${classes.fileUploadLeft}`}>
+          <label htmlFor="file-upload" className={classes.mb1}>
+            Mock Design
+          </label>
+          <input id="file-upload" type="file" accept="image/*" onChange={handleImageChange}/>
+          {uploadedImage && (
+            <div className={`${classes.mt1}`}>
+              <img src={uploadedImage} alt="Uploaded" style={{ width: '50px', height: '50px' }} />
+            </div>
+          )}
+        </div>
+        <Tooltip title="Generate">
+          <IconButton
+            color="primary"
+            aria-label="generate app"
+            onClick={async (): Promise<void> => {
+              await commands.execute(CustomWidgetCommand.GENERATE_APP, { prompt: promptTextInput, image: uploadedImage, intent });
+            }}
+          >
+            <RxMagicWand size={24} />
+          </IconButton>
+        </Tooltip>
       </div>
       </> : <></>
       }

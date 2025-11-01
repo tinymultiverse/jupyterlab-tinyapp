@@ -51,7 +51,6 @@ export const useStyles = makeStyles(() =>
       // color: 'white !important',
       // backgroundColor: 'rgb(0, 0, 243) !important',
       marginTop: '20px !important',
-      padding: '15px !important',
       width: '100%',
       // This is to keep the label from touching the left edge (prior to user input)
       '& .MuiInputLabel-outlined': {
@@ -63,10 +62,34 @@ export const useStyles = makeStyles(() =>
         },
       },
     },
+    promptBox: {
+      width: '100%',
+      border: '1px solid rgba(0,0,0,0.23)',
+      borderRadius: 4,
+      padding: theme.spacing(1),
+      display: 'grid',
+      gridTemplateRows: 'auto auto',
+      rowGap: theme.spacing(1)
+    },
+    promptActionsRow: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      width: '100%'
+    },
+    smallSelect: {
+      minWidth: 110
+    },
+    hideOutline: {
+      '& fieldset': {
+        border: '0 !important'
+      }
+    },
     fileUploadContainer: {
       // padding: '15px !important',
       textAlign: 'left',
-      marginLeft: '50px !important',
+      marginLeft: '0 !important',
+      width: '100%',
       '& label': {
         display: 'block',
         // marginBottom: theme.spacing(3), // or use a fixed value like '5px'
@@ -74,6 +97,17 @@ export const useStyles = makeStyles(() =>
       '& input': {
         // Add any specific styles for your file input here if needed
       },
+    },
+    mockRow: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      width: '100%'
+    },
+    fileUploadLeft: {
+      display: 'flex',
+      flexDirection: 'column',
+      flex: 1,
     },
   
     mt3: {
