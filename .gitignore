@@ -1,2 +1,7 @@
 **/_version.py
 node_modules
+.yarn/*
+**/__pycache__/*
+**/jupyterlab_tinyapp/labextension/*
+lib/*
+tsconfig.tsbuildinfo

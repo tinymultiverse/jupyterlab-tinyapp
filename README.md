@@ -69,6 +69,13 @@ To develop the extension locally:
 # Set necessary environment variables
 source envs.sh
 
+# Enable generator
+export AI_ENABLED="true" \
+export OPENAI_API_KEY="<YOUR_KEY>" \
+export OPENAI_TEXT_MODEL="gpt-4.1" \
+export OPENAI_IMAGE_MODEL="gpt-5"
+```
+
 # Activate your conda env (you can follow this tutorial: https://jupyterlab.readthedocs.io/en/stable/extension/extension_tutorial.html)
 conda activate jupyterlab-ext
 

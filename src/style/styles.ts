@@ -61,11 +61,12 @@ export const useStyles = makeStyles(() =>
           marginLeft: theme.spacing(1),
         },
       },
-      // Ensure the textarea maintains constant height
+      // Ensure the textarea maintains constant height with scroll
       '& textarea': {
         minHeight: '120px !important',
         maxHeight: '120px !important',
         height: '120px !important',
+        overflowY: 'auto !important',
       },
     },
     promptBox: {
