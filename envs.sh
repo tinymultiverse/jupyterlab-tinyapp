@@ -1,0 +1,11 @@
+export APP_PREVIEW_PORT=8002
+export APP_PREVIEW_URL="http://127.0.0.1:8005"
+export APP_PREVIEW_BASE_URL="/tinyapp/app-preview"
+export TINY_APP_SERVER_URL="http://tinyapp-server.tinyapp.cluster.local.svc"
+export CONDA_ENV_DIR="/opt/conda"
+export VALIDATE_SSL="true"
+export TINY_APP_IMAGE="tinyapp:ldap"
+export VOLUME_CLAIM_NAME="my-data"
+export VOLUME_CLAIM_MOUNT_PATH="/home/jovyan"
+export AI_ENABLED="false"
+export MOCK_AI_STREAM="false"

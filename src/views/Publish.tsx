@@ -26,6 +26,7 @@ import {
   StyledTextInputField,
   ViewType
 } from '../components/Common';
+import { UserSearchField } from '../components/UserSearchField';
 import { PathExt } from '@jupyterlab/coreutils';
 import { ThemeProvider } from '@material-ui/styles';
 import { theme } from '../style/theme';
@@ -33,6 +34,15 @@ import { Button, FormControl, Typography } from '@material-ui/core';
 import { requestAPI } from '../middleware';
 import { useStyles } from '../style/styles';
 import { getSelectedAppType } from '../utils/common';
+
+interface User {
+  uid: string;
+  cn: string;
+  displayName: string;
+  mail: string;
+  label: string;
+  value: string;
+}
 
 export const publishExecutor = async (
   tracker: INotebookTracker,
@@ -69,6 +79,7 @@ const PublishForm = (props: IPublishFormProps): any => {
   const [resultType, setResultType] = useState(ResultType.NULL);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
 
   const timestamp = new Date().getTime();
 
@@ -96,12 +107,15 @@ const PublishForm = (props: IPublishFormProps): any => {
       `appDescription-${timestamp}`
     ) as HTMLInputElement).value;
 
+    // Prepare allowed users for backend
+    const allowedUsers = selectedUsers.map(user => user.uid);
   await  requestAPI<any>('publish', {
       body: JSON.stringify({
         notebookPath: notebookPath,
         appTitle: appTitle,
         appDescription: appDescription,
         appType: appType,
+        allowedUsers: allowedUsers,
       }),
       method: 'POST'
     })
@@ -150,6 +164,15 @@ const PublishForm = (props: IPublishFormProps): any => {
               id={`appDescription-${timestamp}`}
               label="App Description"
               disabled={isLoading}
+            />
+          </FormControl>
+          <FormControl fullWidth style={{ paddingBottom: '20px' }}>
+            <UserSearchField
+              selectedUsers={selectedUsers}
+              onUsersChange={setSelectedUsers}
+              disabled={isLoading}
+              label="Allowed Users"
+              placeholder="Search for users to grant access..."
             />
           </FormControl>
         </div>

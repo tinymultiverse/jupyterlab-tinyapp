@@ -44,6 +44,7 @@ from .generation.generator import (
     extract_code_from_notebook
 )
 from .generation.streaming import StreamParser
+import ldap3
 
 app = Application.instance()
 logger = logging.getLogger(app.log.name)
@@ -128,6 +129,14 @@ VALIDATE_SSL = os.getenv('VALIDATE_SSL', 'true').lower() == 'true'
 # a consistent environment.
 TINY_APP_IMAGE = os.getenv('TINY_APP_IMAGE', '')
 BASE_DIR = os.getcwd()
+
+# LDAP Configuration
+LDAP_ADDR = os.getenv('LDAP_ADDR')
+LDAP_BASE_DN = os.getenv('LDAP_BASE_DN', 'ou=people,dc=example,dc=org')
+LDAP_BIND_DN = os.getenv('LDAP_BIND_DN', 'cn=admin,dc=example,dc=org')
+LDAP_BIND_PASSWORD = os.getenv('LDAP_BIND_PASSWORD')
+LDAP_USER_SEARCH_FILTER = os.getenv('LDAP_USER_SEARCH_FILTER', '(|(givenName=*{search}*)(sn=*{search}*))')
+LDAP_USER_ATTRIBUTES = os.getenv('LDAP_USER_ATTRIBUTES', 'cn,uid,displayName,mail,givenName,sn').split(',')
 
 # VOLUME_CLAIM_NAME will be mounted on published app container. It is assumed that
 # BASE_DIR and VOLUME_CLAIM_NAME refer to same file system - otherwise files
@@ -562,6 +571,11 @@ class PublishHandler(CustomAPIHandler):
         input_data = self.get_json_body()
         logger.info(f'Received request to PublishHandler with input:\n{input_data}')
 
+        # Validate app name
+        if not valid_app_name(input_data['appTitle']):
+            logger.info('Invalid app name. Must be alphanumeric with no special characters other than "-" or "_"')
+            self._return_error(400, 'invalid app name. Must be alphanumeric with no special characters other than "-" or "_"')
+            return
         # Validate notebook path exists
         notebook_path = input_data['notebookPath']
         if not os.path.exists(notebook_path):
@@ -588,6 +602,9 @@ class PublishHandler(CustomAPIHandler):
             self._return_error(400, f'{app_type} is not a valid app type')
             return
 
+        # Get allowed users if provided
+        allowed_users = input_data.get('allowedUsers', [])
+
         api_route = f'{TINY_APP_SERVER_URL}{TinyAppServerEndpoint.CREATE.value}'
 
         appDetail = {
@@ -606,6 +623,10 @@ class PublishHandler(CustomAPIHandler):
             ],
             'mainVolumeClaimName': VOLUME_CLAIM_NAME
         }
+
+        # Add allowed users if provided
+        if allowed_users and len(allowed_users) > 0:
+            appDetail['allowedUsers'] = allowed_users
 
         # TODO Mount additional volume claims
 
@@ -651,7 +672,9 @@ def valid_app_name(app_name: str) -> bool:
     :param app_name: the given name for the application
     :return:
     """
-    return bool(re.match("^[A-Za-z0-9_-]*$", app_name))
+    # Must be non-empty and only contain alphanumeric characters, "-" or "_"
+    cleaned = app_name.strip() if app_name else ''
+    return bool(cleaned and re.match("^[A-Za-z0-9_-]+$", cleaned))
 
 class NewAppDirectoryHandler(CustomAPIHandler):
     @tornado.web.authenticated
@@ -895,6 +918,85 @@ class DeleteAppHandler(CustomAPIHandler):
         }))
 
 
+class SearchUsersHandler(CustomAPIHandler):
+    @tornado.web.authenticated
+    async def get(self):
+        logger.info('Received request to SearchUsersHandler')
+        
+        # Get search query parameter
+        search_query = self.get_argument('query', '')
+        if not search_query or len(search_query.strip()) < 2:
+            logger.info('Invalid query parameter: must be at least 2 characters')
+            self._return_error(400, 'query parameter must be at least 2 characters')
+        
+        if not LDAP_ADDR or not LDAP_BASE_DN:
+            logger.warning('LDAP not configured')
+            self._return_error(500, 'ldap is not configured: missing LDAP_ADDR or LDAP_BASE_DN')
+            return
+        
+        # Create LDAP server object
+        try:
+            server = ldap3.Server(LDAP_ADDR, get_info=ldap3.ALL)
+            # Connect and bind to LDAP server
+            if LDAP_BIND_DN and LDAP_BIND_PASSWORD:
+                conn = ldap3.Connection(server, LDAP_BIND_DN, LDAP_BIND_PASSWORD, auto_bind=True)
+            else:
+                conn = ldap3.Connection(server, auto_bind=True)
+        except Exception as e:
+            logger.error(f'Error connecting to LDAP server: {str(e)}')
+            self._return_error(500, 'Unable to connect to LDAP server')
+            return
+        
+        # Search for users
+        search_filter = LDAP_USER_SEARCH_FILTER.format(search=ldap3.utils.conv.escape_filter_chars(search_query))
+        
+        try:
+            success = conn.search(
+                search_base=LDAP_BASE_DN,
+                search_filter=search_filter,
+                search_scope=ldap3.SUBTREE,
+                attributes=LDAP_USER_ATTRIBUTES,
+                size_limit=1000
+            )
+            
+            if not success:
+                conn.unbind()
+                logger.error('No results found or error during LDAP search')
+                self._return_error(500, 'No results found or error during LDAP search')
+                return
+        except Exception as e:
+            conn.unbind()
+            logger.error(f'Error during LDAP search: {str(e)}')
+            self._return_error(500, 'error searching ldap directory')
+            return
+
+        # Process search results
+        users = []
+        for entry in conn.entries:
+            user_data = {
+                'uid': str(entry.uid) if hasattr(entry, 'uid') and entry.uid else '',
+                'cn': str(entry.cn) if hasattr(entry, 'cn') and entry.cn else '',
+                'displayName': str(entry.displayName) if hasattr(entry, 'displayName') and entry.displayName else '',
+                'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else ''
+            }
+    
+            user_data['label'] = user_data['cn']
+            user_data['value'] = user_data['uid']
+            
+            if user_data['value']:  # Only include users with a valid identifier
+                users.append(user_data)
+            
+        logger.info(f'Found {len(users)} users for query: {search_query}')
+        
+        self.finish(json.dumps({
+            'data': {
+                'users': users
+            }
+        }))
+
+        conn.unbind()
+        
+
 class PingHandler(CustomAPIHandler):
     @tornado.web.authenticated
     async def get(self):
@@ -939,6 +1041,7 @@ def setup_handlers(web_app):
         (url_path_join(base_url, tiny_app_subpath, 'delete_app'), DeleteAppHandler),
         (url_path_join(base_url, tiny_app_subpath, 'logs'), LogsHandler),
         (url_path_join(base_url, tiny_app_subpath, 'preview_logs'), PreviewLogsHandler),
+        (url_path_join(base_url, tiny_app_subpath, 'search_users'), SearchUsersHandler),
         (url_path_join(base_url, tiny_app_subpath, 'ping'), PingHandler)
     ]
 
