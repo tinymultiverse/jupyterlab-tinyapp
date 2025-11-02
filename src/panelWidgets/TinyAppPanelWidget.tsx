@@ -180,7 +180,7 @@ export const TinyAppPanelWidget = (
 
         {/* Middle row - Text input */}
         <TextField
-          label="Write your prompt"
+          label={intent === 'new' ? "Describe your new app" : "Describe how you want to edit your app"}
           variant="outlined"
           fullWidth
           value={promptTextInput}
