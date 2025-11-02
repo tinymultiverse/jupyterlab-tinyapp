@@ -152,8 +152,6 @@ Please update the code based on the user's request."""
             }
         )
 
-        self.logger.info(f'messages: {self.messages}')
-
         stream = self.client.chat.completions.create(
             model=model_id, 
             #  TODO: if the user is vauge the model should just output in the text why they need to rephrase? or put this in the chat box on the side.

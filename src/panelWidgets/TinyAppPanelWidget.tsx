@@ -23,6 +23,7 @@ import { useStyles } from '../style/styles';
 import { TextField, ThemeProvider, Typography, FormControl, Select, MenuItem, IconButton, Tooltip } from '@material-ui/core';
 import { theme } from '../style/theme';
 import { RxMagicWand } from "react-icons/rx";
+import { MdAttachFile, MdClose } from "react-icons/md";
 import { EnvVars } from '../utils/common';
 
 export interface ITinyAppPanelWidgetProps {
@@ -36,6 +37,7 @@ export const TinyAppPanelWidget = (
 
   const [promptTextInput, setPromptTextInput] = useState("")
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [intent, setIntent] = useState<'new' | 'modify'>('new');
 
   const handlePromptInputChange = (event: { target: { value: React.SetStateAction<string>; }; }) => {
@@ -66,6 +68,7 @@ export const TinyAppPanelWidget = (
             // Ensure the `result` is a string before calling `setUploadedImage`.
             if (typeof e.target?.result === 'string') {
                 setUploadedImage(e.target.result);
+                setUploadedFileName(imageFile.name);
             }
         };
         reader.onerror = (e) => {
@@ -126,6 +129,56 @@ export const TinyAppPanelWidget = (
 { envVars.ai_enabled? 
   <>     
       <div className={classes.promptBox}>
+        {/* Top row - Mock Design attachment */}
+        <div className={classes.promptTopRow}>
+          <div>
+            <Typography variant="caption" display="block">
+              Mock Design
+            </Typography>
+            <input 
+              id="file-upload" 
+              type="file" 
+              accept="image/*" 
+              onChange={handleImageChange}
+              style={{ display: 'none' }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Tooltip title="Attach mock design">
+                <IconButton
+                  color={uploadedImage ? "primary" : "default"}
+                  aria-label="attach mock design"
+                  onClick={() => document.getElementById('file-upload')?.click()}
+                  size="small"
+                >
+                  <MdAttachFile size={20} />
+                </IconButton>
+              </Tooltip>
+              {uploadedFileName && (
+                <>
+                  <Typography variant="caption" color="textSecondary">
+                    {uploadedFileName}
+                  </Typography>
+                  <Tooltip title="Remove attachment">
+                    <IconButton
+                      aria-label="remove attachment"
+                      onClick={() => {
+                        setUploadedImage(null);
+                        setUploadedFileName(null);
+                        const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+                        if (fileInput) fileInput.value = '';
+                      }}
+                      size="small"
+                    >
+                      <MdClose size={16} />
+                    </IconButton>
+                  </Tooltip>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Middle row - Text input */}
         <TextField
           label="Write your prompt"
           variant="outlined"
@@ -136,6 +189,8 @@ export const TinyAppPanelWidget = (
           InputProps={{ classes: { notchedOutline: classes.hideOutline } }}
           multiline
         />
+
+        {/* Bottom row - Intent selector and generate button */}
         <div className={classes.promptActionsRow}>
           <FormControl variant="outlined" size="small" className={classes.smallSelect}>
             <Select
@@ -147,34 +202,18 @@ export const TinyAppPanelWidget = (
               <MenuItem value={'modify'}>Edit</MenuItem>
             </Select>
           </FormControl>
-          {/* Wand icon remains in the mock row; this row holds only the select for now */}
+          <Tooltip title="Generate">
+            <IconButton
+              color="primary"
+              aria-label="generate app"
+              onClick={async (): Promise<void> => {
+                await commands.execute(CustomWidgetCommand.GENERATE_APP, { prompt: promptTextInput, image: uploadedImage, intent });
+              }}
+            >
+              <RxMagicWand size={24} />
+            </IconButton>
+          </Tooltip>
         </div>
-      </div>
-
-      {/* Mock design row with generate icon at right */}
-      <div className={`${classes.mockRow} ${classes.mt1}`}>
-        <div className={`${classes.fileUploadContainer} ${classes.fileUploadLeft}`}>
-          <label htmlFor="file-upload" className={classes.mb1}>
-            Mock Design
-          </label>
-          <input id="file-upload" type="file" accept="image/*" onChange={handleImageChange}/>
-          {uploadedImage && (
-            <div className={`${classes.mt1}`}>
-              <img src={uploadedImage} alt="Uploaded" style={{ width: '50px', height: '50px' }} />
-            </div>
-          )}
-        </div>
-        <Tooltip title="Generate">
-          <IconButton
-            color="primary"
-            aria-label="generate app"
-            onClick={async (): Promise<void> => {
-              await commands.execute(CustomWidgetCommand.GENERATE_APP, { prompt: promptTextInput, image: uploadedImage, intent });
-            }}
-          >
-            <RxMagicWand size={24} />
-          </IconButton>
-        </Tooltip>
       </div>
       </> : <></>
       }
