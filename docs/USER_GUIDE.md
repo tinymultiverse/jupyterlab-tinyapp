@@ -1,5 +1,11 @@
 # TinyApp Extension User Guide
 
+## App Directory
+
+To get started, create app directory.
+
+![create app directory](./assets/new-app-directory.png)
+
 ## App Preview
 
 App preview runs an app process within the same Docker container (or local machine) where you're running this extension.

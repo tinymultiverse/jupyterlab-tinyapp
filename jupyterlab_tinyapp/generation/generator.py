@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 import logging
+import os
 import time
 from typing import Generator
 from openai import OpenAI
@@ -52,9 +53,20 @@ class OpenAIStreamingGenerator(StreamingGenerator):
         super().__init__(logger)
         self.client = OpenAI()
         self.messages=[]
+        # Read model IDs from environment variables
+        self.text_model = os.getenv('OPENAI_TEXT_MODEL')
+        self.image_model = os.getenv('OPENAI_IMAGE_MODEL')
+        
+        if not self.text_model:
+            raise ValueError("OPENAI_TEXT_MODEL environment variable must be set")
+        if not self.image_model:
+            raise ValueError("OPENAI_IMAGE_MODEL environment variable must be set")
+        
+        self.logger.info(f'OpenAI text model: {self.text_model}')
+        self.logger.info(f'OpenAI image model: {self.image_model}')
 
     def create_stream(self, prompt, image):
-        model_id = "gpt-4-turbo-2024-04-09"
+        model_id = self.text_model
 
         if len(self.messages) == 0:
             sys_prompt = self.get_sys_prompt(image!=None)
@@ -69,7 +81,7 @@ class OpenAIStreamingGenerator(StreamingGenerator):
         user_query_content = []
 
         if image: 
-            model_id = "gpt-4-vision-preview"
+            model_id = self.image_model
             user_query_content.append({
                 "type": "image_url",
                 "image_url": {
@@ -92,13 +104,10 @@ class OpenAIStreamingGenerator(StreamingGenerator):
         self.logger.info(f'messages: {self.messages}')
 
         stream = self.client.chat.completions.create(
-            # TODO: pull out into env vars
             model=model_id, 
             #  TODO: if the user is vauge the model should just output in the text why they need to rephrase? or put this in the chat box on the side.
             messages=self.messages,
-            temperature=0,
-            max_tokens=2000,
-            top_p=0,
+            max_completion_tokens=2000,
             frequency_penalty=0,
             presence_penalty=0,
             stream=True,

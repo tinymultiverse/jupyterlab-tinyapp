@@ -1062,11 +1062,72 @@ class SearchUsersHandler(CustomAPIHandler):
             return
         
         # Return results
+        if not LDAP_ADDR or not LDAP_BASE_DN:
+            logger.warning('LDAP not configured')
+            self._return_error(500, 'ldap is not configured: missing LDAP_ADDR or LDAP_BASE_DN')
+            return
+        
+        # Create LDAP server object
+        try:
+            server = ldap3.Server(LDAP_ADDR, get_info=ldap3.ALL)
+            # Connect and bind to LDAP server
+            if LDAP_BIND_DN and LDAP_BIND_PASSWORD:
+                conn = ldap3.Connection(server, LDAP_BIND_DN, LDAP_BIND_PASSWORD, auto_bind=True)
+            else:
+                conn = ldap3.Connection(server, auto_bind=True)
+        except Exception as e:
+            logger.error(f'Error connecting to LDAP server: {str(e)}')
+            self._return_error(500, 'Unable to connect to LDAP server')
+            return
+        
+        # Search for users
+        search_filter = LDAP_USER_SEARCH_FILTER.format(search=ldap3.utils.conv.escape_filter_chars(search_query))
+        
+        try:
+            success = conn.search(
+                search_base=LDAP_BASE_DN,
+                search_filter=search_filter,
+                search_scope=ldap3.SUBTREE,
+                attributes=LDAP_USER_ATTRIBUTES,
+                size_limit=1000
+            )
+            
+            if not success:
+                conn.unbind()
+                logger.error('No results found or error during LDAP search')
+                self._return_error(500, 'No results found or error during LDAP search')
+                return
+        except Exception as e:
+            conn.unbind()
+            logger.error(f'Error during LDAP search: {str(e)}')
+            self._return_error(500, 'error searching ldap directory')
+            return
+
+        # Process search results
+        users = []
+        for entry in conn.entries:
+            user_data = {
+                'uid': str(entry.uid) if hasattr(entry, 'uid') and entry.uid else '',
+                'cn': str(entry.cn) if hasattr(entry, 'cn') and entry.cn else '',
+                'displayName': str(entry.displayName) if hasattr(entry, 'displayName') and entry.displayName else '',
+                'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else ''
+            }
+    
+            user_data['label'] = user_data['cn']
+            user_data['value'] = user_data['uid']
+            
+            if user_data['value']:  # Only include users with a valid identifier
+                users.append(user_data)
+            
+        logger.info(f'Found {len(users)} users for query: {search_query}')
+        
         self.finish(json.dumps({
             'data': {
                 'users': users
             }
         }))
+
+        conn.unbind()
         
 
 class PingHandler(CustomAPIHandler):

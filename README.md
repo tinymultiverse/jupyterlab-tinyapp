@@ -47,6 +47,8 @@ python -m build -w
 | VOLUME_CLAIM_MOUNT_PATH         | (REQUIRED)                    | mount path of volume claim to app container |
 | AI_ENABLED                      | true                          | enable app code generation using LLM |
 | OPENAI_API_KEY                  | (REQUIRED if AI_ENABLED set)  | api key to connect to openai LLM model |
+| OPENAI_TEXT_MODEL               | (REQUIRED if AI_ENABLED set)  | OpenAI model to use for text-based generation (e.g., gpt-5, gpt-5-mini) |
+| OPENAI_IMAGE_MODEL              | (REQUIRED if AI_ENABLED set)  | OpenAI model to use for image-based generation (e.g., gpt-5) |
 | MOCK_AI_STREAM                  | false                         | mock ai response |
 
 ## Backend
