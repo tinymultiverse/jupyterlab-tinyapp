@@ -61,9 +61,16 @@ export const useStyles = makeStyles(() =>
           marginLeft: theme.spacing(1),
         },
       },
+      // Ensure the textarea maintains constant height
+      '& textarea': {
+        minHeight: '120px !important',
+        maxHeight: '120px !important',
+        height: '120px !important',
+      },
     },
     promptBox: {
       width: '100%',
+      marginTop: '20px',
       border: '1px solid rgba(0,0,0,0.23)',
       borderRadius: 4,
       padding: theme.spacing(1),

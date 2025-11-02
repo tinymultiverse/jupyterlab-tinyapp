@@ -135,8 +135,6 @@ export const TinyAppPanelWidget = (
           className={classes.generateInput}
           InputProps={{ classes: { notchedOutline: classes.hideOutline } }}
           multiline
-          rows={3}
-          rowsMax={6}
         />
         <div className={classes.promptActionsRow}>
           <FormControl variant="outlined" size="small" className={classes.smallSelect}>
